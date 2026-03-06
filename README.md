@@ -1,2 +1,1 @@
-# NexusCRM
-CRM app built by Deep Patel, Devdutt Dave and Divyansh Kumar for WBB
+CRM app for WBB by Deep Patel, Divyansh Kumar and Devdutt Dave
