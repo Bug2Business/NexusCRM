@@ -19,6 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Lab3"
+rootProject.name = "NexusCRM"
 include(":app")
- 

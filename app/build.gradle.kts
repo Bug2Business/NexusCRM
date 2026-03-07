@@ -4,14 +4,12 @@ plugins {
 }
 
 android {
-    namespace = "com.android.lab3"
-    compileSdk {
-        version = release(36)
-    }
+    namespace = "com.android.nexuscrm"
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.android.lab3"
-        minSdk = 32
+        applicationId = "com.android.nexuscrm"
+        minSdk = 33
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -47,12 +45,13 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation("androidx.compose.material:material-icons-extended")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
-    implementation("androidx.biometric:biometric:1.1.0")
+    implementation("androidx.biometric:biometric:1.2.0-alpha05")
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
