@@ -105,7 +105,26 @@ class MainActivity : FragmentActivity() {
                     startDestination = "login"
                 ) {
                     composable("login") {
-                        BackHandler { finish() }
+                        val showExitDialog = remember { mutableStateOf(false) }
+                        if (showExitDialog.value) {
+                            AlertDialog(
+                                onDismissRequest = { showExitDialog.value = false },
+                                title = { Text("Exit App") },
+                                text = { Text("Are you sure you want to exit?") },
+                                confirmButton = {
+                                    TextButton(onClick = { finish() }) {
+                                        Text("Exit")
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showExitDialog.value = false }) {
+                                        Text("Cancel")
+                                    }
+                                }
+                            )
+                        }
+                        BackHandler(enabled = !showExitDialog.value) { showExitDialog.value = true }
+                        
                         LoginScreen(
                             onLoginSuccess = { email, password ->
                                 val user = userDatabase.find { it.email == email && it.password == password }
@@ -128,6 +147,26 @@ class MainActivity : FragmentActivity() {
                     }
 
                     composable("register") {
+                        val showExitDialog = remember { mutableStateOf(false) }
+                        if (showExitDialog.value) {
+                            AlertDialog(
+                                onDismissRequest = { showExitDialog.value = false },
+                                title = { Text("Exit App") },
+                                text = { Text("Are you sure you want to exit?") },
+                                confirmButton = {
+                                    TextButton(onClick = { finish() }) {
+                                        Text("Exit")
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showExitDialog.value = false }) {
+                                        Text("Cancel")
+                                    }
+                                }
+                            )
+                        }
+                        BackHandler(enabled = !showExitDialog.value) { showExitDialog.value = true }
+
                         RegisterScreen(
                             onRegisterSuccess = { email, password ->
                                 if (userDatabase.any { it.email == email }) "Email already exists"
@@ -295,7 +334,7 @@ fun MainCRMContainer(
 ) {
     val tabs = listOf("Dashboard", "Leads", "Tasks")
     var selectedTab by remember { mutableIntStateOf(0) }
-
+    
     Box(modifier = Modifier.fillMaxSize()) {
         // Shared Background for consistent UI
         Image(

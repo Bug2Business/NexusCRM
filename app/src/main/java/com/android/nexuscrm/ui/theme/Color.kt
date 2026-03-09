@@ -1,4 +1,4 @@
-package com.android.lab3.ui.theme
+package com.android.nexuscrm.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

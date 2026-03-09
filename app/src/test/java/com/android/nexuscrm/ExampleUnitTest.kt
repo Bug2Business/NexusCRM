@@ -1,4 +1,4 @@
-package com.android.lab3
+package com.android.nexuscrm
 
 import org.junit.Test
 
