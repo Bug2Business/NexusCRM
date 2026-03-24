@@ -18,4 +18,7 @@
 
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
-#-renamesourcefileattribute SourceFile
+#-renamesourcefileattribute SourceFile,LineNumberTable
+
+# Preserve model classes for Firebase Firestore deserialization
+-keep class com.android.nexuscrm.model.** { *; }

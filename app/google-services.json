@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "691901871326",
+    "project_id": "nexuscrm-30887",
+    "storage_bucket": "nexuscrm-30887.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:691901871326:android:7dd202d53162f5b72b3e4f",
+        "android_client_info": {
+          "package_name": "com.android.nexuscrm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB-yLxacytw4o0QXiAcghc6XBt7IPXyHkg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

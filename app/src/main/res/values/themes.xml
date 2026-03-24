@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.NexusCRM" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.NexusCRM" parent="android:Theme.Material.Light.NoActionBar">
+
+        <!-- 🔥 FIX: MUST be inside style -->
+        <item name="android:windowBackground">@android:color/black</item>
+
+    </style>
+
 </resources>

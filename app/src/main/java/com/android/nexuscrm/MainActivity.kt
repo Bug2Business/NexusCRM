@@ -1,136 +1,170 @@
 package com.android.nexuscrm
 
 import android.os.Bundle
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.material3.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.fragment.app.FragmentActivity
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.navigation.compose.*
+import com.android.nexuscrm.firebase.FirebaseAuthManager
 import com.android.nexuscrm.model.*
 import com.android.nexuscrm.ui.components.*
 import com.android.nexuscrm.ui.screens.*
+import com.android.nexuscrm.ui.theme.NexusCRMTheme
+import com.google.firebase.FirebaseApp
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.toObjects
 
-class MainActivity : FragmentActivity() {
+class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
+        // Initialize Firebase
+        FirebaseApp.initializeApp(this)
+        val db = FirebaseFirestore.getInstance()
+
         setContent {
-            val userDatabase = remember { 
-                mutableStateListOf(
-                    User("admin@crm.com", "admin123", UserRole.ADMIN),
-                    User("user@crm.com", "user123", UserRole.USER),
-                    User("manager@crm.com", "manager123", UserRole.MANAGER)
-                )
-            }
+            NexusCRMTheme {
+                // Root container to ensure no white flashes during navigation
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black)
+                ) {
+                    val navController = rememberNavController()
+                    var currentUser by remember { mutableStateOf<User?>(null) }
 
-            val leads = remember {
-                mutableStateListOf(
-                    Lead(1, "John Doe", "TechCorp", 5000.0, LeadStatus.NEW, "555-0101", "john@techcorp.com", mutableListOf(Interaction("Note", "Met at conference"))),
-                    Lead(2, "Jane Smith", "DesignHub", 12000.0, LeadStatus.PROPOSAL, "555-0102", "jane@designhub.com"),
-                    Lead(3, "Robert Brown", "LogiLink", 2500.0, LeadStatus.CONTACTED, "555-0103", "rob@logilink.net"),
-                    Lead(4, "Alice Green", "EcoBuild", 20000.0, LeadStatus.CLOSED, "555-0104", "alice@ecobuild.com")
-                )
-            }
-            val tasks = remember {
-                mutableStateListOf(
-                    CRMTask(1, "Follow up with John Doe", "Today", contactName = "John Doe"),
-                    CRMTask(2, "Send proposal to TechCorp", "Tomorrow", contactName = "Jane Smith"),
-                    CRMTask(3, "Quarterly Review", "Next Week")
-                )
-            }
-            val activityLogs = remember {
-                mutableStateListOf(
-                    ActivityLog(1, "System Initialized", "System"),
-                    ActivityLog(2, "Default Leads Loaded", "System")
-                )
-            }
+                    // Real-time data lists synced with Firebase
+                    val leads = remember { mutableStateListOf<Lead>() }
+                    val tasks = remember { mutableStateListOf<CRMTask>() }
+                    val logs = remember { mutableStateListOf<ActivityLog>() }
+                    val userDatabase = remember { mutableStateListOf<User>() }
 
-            fun logAction(action: String, user: String) {
-                val id = (activityLogs.maxOfOrNull { it.id } ?: 0) + 1
-                activityLogs.add(0, ActivityLog(id, action, user))
-            }
-
-            MaterialTheme(
-                colorScheme = darkColorScheme(
-                    primary = Color(0xFF64B5F6),
-                    secondary = Color(0xFF81C784),
-                    background = Color(0xFF0F2027),
-                    surface = Color(0xFF1B2735)
-                )
-            ) {
-                val navController = rememberNavController()
-                var currentUser by remember { mutableStateOf<User?>(null) }
-
-                NavHost(navController = navController, startDestination = "login") {
-                    composable("login") {
-                        val showExitDialog = remember { mutableStateOf(false) }
-                        if (showExitDialog.value) {
-                            ExitAlertDialog(onConfirm = { finish() }, onDismiss = { showExitDialog.value = false })
-                        }
-                        BackHandler(enabled = !showExitDialog.value) { showExitDialog.value = true }
-                        
-                        LoginScreen(
-                            onLoginSuccess = { email, password ->
-                                val user = userDatabase.find { it.email == email && it.password == password }
-                                if (user != null) {
-                                    if (!user.isActive) return@LoginScreen false
-                                    currentUser = user
-                                    logAction("User Logged In", user.email)
-                                    navController.navigate("main_crm") { popUpTo("login") { inclusive = true } }
-                                    true
-                                } else false
-                            },
-                            onRegisterClicked = { navController.navigate("register") },
-                            onBiometricSuccess = {
-                                val user = userDatabase.find { it.role == UserRole.ADMIN }
-                                if (user != null) {
-                                    currentUser = user
-                                    logAction("Biometric Login Success", user.email)
-                                    navController.navigate("main_crm") { popUpTo("login") { inclusive = true } }
+                    // Sync logic: Only runs when a user is logged in
+                    LaunchedEffect(currentUser) {
+                        if (currentUser != null) {
+                            // Listen for Leads
+                            db.collection("leads").addSnapshotListener { snapshot, _ ->
+                                snapshot?.let {
+                                    leads.clear()
+                                    leads.addAll(it.toObjects<Lead>())
                                 }
                             }
-                        )
-                    }
-
-                    composable("register") {
-                        val showExitDialog = remember { mutableStateOf(false) }
-                        if (showExitDialog.value) {
-                            ExitAlertDialog(onConfirm = { finish() }, onDismiss = { showExitDialog.value = false })
-                        }
-                        BackHandler(enabled = !showExitDialog.value) { showExitDialog.value = true }
-
-                        RegisterScreen(
-                            onRegisterSuccess = { email, password ->
-                                if (userDatabase.any { it.email == email }) "Email already exists"
-                                else {
-                                    userDatabase.add(User(email, password, UserRole.USER))
-                                    logAction("New User Registered", email)
-                                    navController.navigate("login")
-                                    null
+                            // Listen for Tasks
+                            db.collection("tasks").addSnapshotListener { snapshot, _ ->
+                                snapshot?.let {
+                                    tasks.clear()
+                                    tasks.addAll(it.toObjects<CRMTask>())
                                 }
-                            },
-                            onBack = { navController.popBackStack() }
-                        )
+                            }
+                            // Listen for Users
+                            db.collection("users").addSnapshotListener { snapshot, _ ->
+                                snapshot?.let {
+                                    userDatabase.clear()
+                                    userDatabase.addAll(it.toObjects<User>())
+                                }
+                            }
+                        }
                     }
 
-                    composable("main_crm") {
-                        MainCRMContainer(
-                            currentUser = currentUser,
-                            leads = leads,
-                            tasks = tasks,
-                            users = userDatabase,
-                            logs = activityLogs,
-                            onLogAction = ::logAction,
-                            onLogout = {
-                                currentUser?.let { logAction("User Logged Out", it.email) }
-                                navController.navigate("login") { popUpTo("main_crm") { inclusive = true } }
-                            }
+                    // Cloud Logging Function
+                    fun logAction(action: String, userEmail: String) {
+                        val newLog = ActivityLog(
+                            id = System.currentTimeMillis().toInt(),
+                            action = action,
+                            user = userEmail
                         )
+                        db.collection("logs").add(newLog)
+                    }
+
+                    Box(modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 0.99f }) {
+                        NavHost(
+                            navController = navController,
+                            startDestination = "login"
+                        ) {
+                            // 🔐 LOGIN
+                            composable("login") {
+                                val showExitDialog = remember { mutableStateOf(false) }
+
+                                if (showExitDialog.value) {
+                                    ExitAlertDialog(
+                                        onConfirm = { finish() },
+                                        onDismiss = { showExitDialog.value = false }
+                                    )
+                                }
+
+                                BackHandler(enabled = !showExitDialog.value) {
+                                    showExitDialog.value = true
+                                }
+
+                                LoginScreen(
+                                    onLoginSuccess = { email, password ->
+                                        FirebaseAuthManager.loginUser(
+                                            email,
+                                            password,
+                                            onSuccess = {
+                                                currentUser = User(email, "", UserRole.USER)
+                                                navController.navigate("main_crm") {
+                                                    popUpTo("login") { inclusive = true }
+                                                }
+                                            },
+                                            onError = { /* Error handled in UI */ }
+                                        )
+                                        true
+                                    },
+                                    onRegisterClicked = {
+                                        navController.navigate("register")
+                                    }
+                                )
+                            }
+
+                            // 📝 REGISTER
+                            composable("register") {
+                                RegisterScreen(
+                                    onRegisterSuccess = { email, password ->
+                                        FirebaseAuthManager.registerUser(
+                                            email,
+                                            password,
+                                            onSuccess = {
+                                                val newUser = User(email, "", UserRole.USER)
+                                                db.collection("users").document(email).set(newUser)
+                                                navController.navigate("login")
+                                            },
+                                            onError = { /* Error handled in UI */ }
+                                        )
+                                        null
+                                    },
+                                    onBack = {
+                                        navController.popBackStack()
+                                    }
+                                )
+                            }
+
+                            // 🏠 MAIN CRM
+                            composable("main_crm") {
+                                MainCRMContainer(
+                                    currentUser = currentUser,
+                                    leads = leads,
+                                    tasks = tasks,
+                                    users = userDatabase,
+                                    logs = logs,
+                                    onLogAction = ::logAction,
+                                    onLogout = {
+                                        FirebaseAuthManager.logout()
+                                        currentUser = null
+                                        navController.navigate("login") {
+                                            popUpTo("main_crm") { inclusive = true }
+                                        }
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }

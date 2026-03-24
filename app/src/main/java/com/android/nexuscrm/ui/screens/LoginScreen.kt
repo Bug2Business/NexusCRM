@@ -1,104 +1,196 @@
 package com.android.nexuscrm.ui.screens
 
-import androidx.biometric.BiometricManager
-import androidx.biometric.BiometricPrompt
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
+import android.os.Handler
+import android.os.Looper
+import com.android.nexuscrm.ui.components.BiometricButton
+import androidx.compose.ui.geometry.CornerRadius
+import com.android.nexuscrm.ui.components.SuccessCheckmark
+import android.view.HapticFeedbackConstants
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.*
+import androidx.compose.ui.draw.*
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
 import com.android.nexuscrm.R
-import com.android.nexuscrm.model.UserRole
-import com.android.nexuscrm.ui.components.CRMTextField
-import com.android.nexuscrm.ui.components.FrostedGlassButton
-import com.android.nexuscrm.ui.components.GlassCard
-import com.android.nexuscrm.ui.components.GreetingHeader
-import java.util.concurrent.Executor
+import com.android.nexuscrm.auth.FirebaseAuthHelper
+import com.android.nexuscrm.ui.components.AnimatedTextField
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (String, String) -> Boolean,
-    onRegisterClicked: () -> Unit,
-    onBiometricSuccess: () -> Unit
+    onLoginSuccess: (String, String) -> Unit,
+    onRegisterClicked: () -> Unit
 ) {
-    val context = LocalContext.current
-    val activity = context as? FragmentActivity
+    val view = LocalView.current
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf("") }
+
+    var isLoading by remember { mutableStateOf(false) }
+    var isSuccess by remember { mutableStateOf(false) }
+
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+
+    val scale by animateFloatAsState(if (visible) 1f else 0.7f, spring(), label = "")
+    val alpha by animateFloatAsState(if (visible) 1f else 0f, tween(500), label = "")
+
+    val infiniteTransition = rememberInfiniteTransition(label = "")
+    val gradientShift by infiniteTransition.animateFloat(
+        0f, 1000f,
+        infiniteRepeatable(tween(4000), RepeatMode.Reverse), label = ""
+    )
+
+    val isEmailValid = email.contains("@")
+    val isPasswordValid = password.length >= 6
+
+    Box(Modifier.fillMaxSize()) {
+
         Image(
-            painter = painterResource(id = R.drawable.anime_bg),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize().blur(12.dp),
+            painterResource(R.drawable.anime_bg),
+            null,
+            Modifier.fillMaxSize().blur(25.dp),
             contentScale = ContentScale.Crop
         )
 
-        Box(modifier = Modifier.fillMaxSize().background(
-            brush = Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.4f), Color.Black.copy(alpha = 0.7f)))
-        ))
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(0.4f)))
 
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(24.dp).align(Alignment.Center),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Box(
+            Modifier.padding(24.dp)
+                .fillMaxWidth()
+                .align(Alignment.Center)
+                .graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha }
+                .background(Color.White.copy(0.1f), RoundedCornerShape(28.dp))
+                .border(1.dp, Color.White.copy(0.3f), RoundedCornerShape(28.dp))
+                .padding(24.dp)
         ) {
-            GreetingHeader()
-            Spacer(modifier = Modifier.height(32.dp))
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    var email by remember { mutableStateOf("") }
-                    var password by remember { mutableStateOf("") }
-                    var error by remember { mutableStateOf("") }
 
-                    CRMTextField(value = email, onValueChange = { email = it }, label = "Email")
-                    Spacer(modifier = Modifier.height(12.dp))
-                    CRMTextField(value = password, onValueChange = { password = it }, label = "Password", isPassword = true)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
-                    if (error.isNotEmpty()) {
-                        Text(text = error, color = Color.Red.copy(alpha = 0.8f), fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
-                    }
+                Text("Welcome Back ✨", color = Color.White)
 
-                    Spacer(modifier = Modifier.height(24.dp))
-                    FrostedGlassButton(text = "Login") {
-                        if (onLoginSuccess(email, password)) error = ""
-                        else error = "Invalid Credentials or Account Disabled"
+                Spacer(Modifier.height(20.dp))
+
+                AnimatedTextField(
+                    email,
+                    { email = it },
+                    "Email",
+                    isError = email.isNotEmpty() && !isEmailValid
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                var passwordVisible by remember { mutableStateOf(false) }
+
+                AnimatedTextField(
+                    password,
+                    { password = it },
+                    "Password",
+                    isError = password.isNotEmpty() && !isPasswordValid,
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                                tint = Color.White.copy(alpha = 0.7f)
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    TextButton(onClick = onRegisterClicked) {
-                        Text("Create New Account", color = Color.White.copy(alpha = 0.8f))
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                if (errorMessage.isNotEmpty()) {
+                    Text(errorMessage, color = Color.Red)
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                if (isLoading) {
+                    CircularProgressIndicator(color = Color.White)
+                } else if (isSuccess) {
+                    SuccessCheckmark()
+                } else {
+
+                    val interactionSource = remember { MutableInteractionSource() }
+                    val pressed by interactionSource.collectIsPressedAsState()
+
+                    val buttonScale by animateFloatAsState(if (pressed) 0.94f else 1f, spring(), label = "")
+                    val glow by animateFloatAsState(if (pressed) 0.3f else 0.1f, label = "")
+
+                    Button(
+                        onClick = {
+                            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+
+                            if (!isEmailValid || !isPasswordValid) {
+                                errorMessage = "Invalid input"
+                                return@Button
+                            }
+
+                            isLoading = true
+
+                            FirebaseAuthHelper.login(email, password) { success, error ->
+                                isLoading = false
+                                if (success) {
+                                    isSuccess = true
+                                    Handler(Looper.getMainLooper()).postDelayed({
+                                        onLoginSuccess(email, password)
+                                    }, 1200)
+                                } else {
+                                    errorMessage = error ?: "Login failed"
+                                }
+                            }
+                        },
+                        interactionSource = interactionSource,
+                        modifier = Modifier.fillMaxWidth().height(54.dp)
+                            .graphicsLayer { scaleX = buttonScale; scaleY = buttonScale },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                        contentPadding = PaddingValues()
+                    ) {
+
+                        Box(
+                            Modifier.fillMaxSize()
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(Color(0xFF6A11CB), Color(0xFF2575FC)),
+                                        start = Offset(gradientShift, 0f),
+                                        end = Offset(gradientShift + 600f, 600f)
+                                    ),
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .drawBehind {
+                                    drawRoundRect(Color.White.copy(glow), cornerRadius = CornerRadius(30f))
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Login", color = Color.White)
+                        }
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    val bm = BiometricManager.from(context)
-                    if (bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL) == BiometricManager.BIOMETRIC_SUCCESS) {
-                        IconButton(
-                            onClick = { activity?.let { showBiometricPrompt(it, onBiometricSuccess) } },
-                            modifier = Modifier.size(48.dp).background(Color.White.copy(alpha = 0.1f), CircleShape)
-                        ) { Icon(Icons.Default.Fingerprint, contentDescription = "Biometric", tint = Color.White) }
-                    }
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                TextButton(onClick = onRegisterClicked) {
+                    Text("Create account", color = Color.White)
                 }
             }
         }
     }
-}
-
-fun showBiometricPrompt(activity: FragmentActivity, onSuccess: () -> Unit) {
-    val executor: Executor = ContextCompat.getMainExecutor(activity)
-    val biometricPrompt = BiometricPrompt(activity, executor, object : BiometricPrompt.AuthenticationCallback() {
-        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) { onSuccess() }
-    })
-    val promptInfo = BiometricPrompt.PromptInfo.Builder().setTitle("NexusCRM Access").setSubtitle("Authenticate to continue").setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL).build()
-    biometricPrompt.authenticate(promptInfo)
 }
